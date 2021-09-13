@@ -12,8 +12,16 @@
 typedef enum {
         TYPE,       /* i: waiting for type bits, including last-flag bit */
         STORED,     /* i: waiting for stored size (length and complement) */
+        COPY,
         TABLE,      /* i: waiting for dynamic block table lengths */
+        LENLENS,
+        CODELENS,
             LEN,        /* i: waiting for length/lit code */
+            LENEXT,
+            DIST,
+            DISTEXT,
+            MATCH,
+            LIT,
     DONE,       /* finished check, done -- remain here until reset */
     BAD         /* got a data error -- remain here until reset */
 } inflate_mode;
@@ -35,6 +43,21 @@ typedef enum {
 struct inflate_state {
         /* sliding window */
     unsigned char FAR *window;  /* allocated sliding window, if needed */
+
+    inflate_mode mode;
+    int last;
+    int wrap;
+    unsigned long hold;
+    unsigned bits;
+    unsigned extra;
+    unsigned length;
+    unsigned offset;
+
+    code const FAR *lencode;
+    code const FAR *distcode;
+    unsigned lenbits;
+    unsigned distbits;
+
         /* dynamic table building */
     unsigned ncode;             /* number of code length code lengths */
     unsigned nlen;              /* number of length code lengths */

@@ -41,6 +41,10 @@ int stream_size;
     Tracev((stderr, "inflate: allocated\n"));
     strm->state = (voidpf)state;
     state->window = window;
+    state->mode = TYPE;
+
+    strm->next_out = window;
+    strm->avail_out = WSIZE;
     return Z_OK;
 }
 
@@ -256,18 +260,33 @@ void FAR *out_desc;
 
     /* Reset the state */
     strm->msg = Z_NULL;
-    mode = TYPE;
-    lastblock = 0;
-    wrap = 0;
+    //mode = TYPE;
+    //lastblock = 0;
+    //wrap = 0;
     window = state->window;
     next = strm->next_in;
     have = next != Z_NULL ? strm->avail_in : 0;
-    hold = 0;
-    bits = 0;
-    put = window;
-    left = WSIZE;
-    lencode = Z_NULL;
-    distcode = Z_NULL;
+    //hold = 0;
+    //bits = 0;
+    //put = window;
+    //left = WSIZE;
+    //lencode = Z_NULL;
+    //distcode = Z_NULL;
+
+    put = strm->next_out; // next_out does not mean API buffer
+    left = strm->avail_out;
+    mode = state->mode;
+    wrap = state->wrap; // wrap meaning is different from inflate.c
+    hold = state->hold;
+    bits = state->bits;
+    extra = state->extra;
+    length = state->length;
+    offset = state->offset;
+    lencode = state->lencode;
+    distcode = state->distcode;
+    lenbits = state->lenbits;
+    distbits = state->distbits;
+    lastblock = state->last;
 
     /* Inflate until end of block marked as last */
     for (;;)
@@ -322,7 +341,8 @@ void FAR *out_desc;
             Tracev((stderr, "inflate:       stored length %lu\n",
                     length));
             INITBITS();
-
+            mode = COPY;
+        case COPY:
             /* copy stored block from input to output */
             while (length != 0) {
                 copy = length;
@@ -359,6 +379,8 @@ void FAR *out_desc;
 
             /* get code length code lengths (not a typo) */
             state->have = 0;
+            mode = LENLENS;
+        case LENLENS:
             while (state->have < state->ncode) {
                 NEEDBITS(3);
                 state->lens[order[state->have++]] = (unsigned short)BITS(3);
@@ -380,6 +402,8 @@ void FAR *out_desc;
 
             /* get length and distance code code lengths */
             state->have = 0;
+            mode = CODELENS;
+        case CODELENS:
             while (state->have < state->nlen + state->ndist) {
                 for (;;) {
                     here = lencode[BITS(lenbits)];
@@ -512,6 +536,8 @@ void FAR *out_desc;
 
             /* length code -- get extra bits, if any */
             extra = (unsigned)(here.op) & 31;
+            mode = LENEXT;
+        case LENEXT:
             if (extra != 0) {
                 NEEDBITS(extra);
                 length += BITS(extra);
@@ -520,6 +546,8 @@ void FAR *out_desc;
             Tracevv((stderr, "inflate:         length %lu\n", length));
 
             /* get distance code */
+            mode = DIST;
+        case DIST:
             for (;;) {
                 here = distcode[BITS(distbits)];
                 if ((unsigned)(here.bits) <= bits) break;
@@ -545,6 +573,8 @@ void FAR *out_desc;
 
             /* get distance extra bits, if any */
             extra = (unsigned)(here.op) & 15;
+            mode = DISTEXT;
+        case DISTEXT:
             if (extra != 0) {
                 NEEDBITS(extra);
                 offset += BITS(extra);
@@ -558,6 +588,8 @@ void FAR *out_desc;
             Tracevv((stderr, "inflate:         distance %lu\n", offset));
 
             /* copy match from window to output */
+            mode = MATCH;
+        case MATCH:
             do {
                 ROOM();
                 copy = WSIZE - offset;
@@ -576,6 +608,7 @@ void FAR *out_desc;
                     *put++ = *from++;
                 } while (--copy);
             } while (length != 0);
+            mode = LEN;
             break;
 
         case DONE:
@@ -598,8 +631,23 @@ void FAR *out_desc;
 
     /* Return unused input */
   inf_leave:
+    strm->next_out = put;
+    strm->avail_out = left;
     strm->next_in = next;
     strm->avail_in = have;
+    
+    state->mode = mode;
+    state->wrap = wrap;
+    state->hold = hold;
+    state->bits = bits;
+    state->extra = extra;
+    state->length = length;
+    state->offset = offset;
+    state->lencode = lencode;
+    state->distcode = distcode;
+    state->lenbits = lenbits;
+    state->distbits = distbits;
+    state->last = lastblock;
     return ret;
 }
 

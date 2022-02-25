@@ -43,8 +43,8 @@ int stream_size;
     state->window = window;
     state->mode = TYPE;
 
-    strm->next_out = window;
-    strm->avail_out = WSIZE;
+    state->put = window;
+    state->left = WSIZE;
     return Z_OK;
 }
 
@@ -129,12 +129,9 @@ void makefixed9(void)
 #define PULL() \
     do { \
         if (have == 0) { \
-            have = in(in_desc, &next); \
-            if (have == 0) { \
-                next = Z_NULL; \
-                ret = Z_BUF_ERROR; \
-                goto inf_leave; \
-            } \
+            /*next = Z_NULL;*/ \
+            /*ret = Z_BUF_ERROR;*/ \
+            goto inf_leave; \
         } \
     } while (0)
 
@@ -183,11 +180,13 @@ void makefixed9(void)
         if (left == 0) { \
             put = window; \
             left = WSIZE; \
+            outsize = WSIZE; \
             wrap = 1; \
-            if (out(out_desc, put, (unsigned)left)) { \
+            goto inf_leave; \
+            /*if (out(out_desc, put, (unsigned)left)) { \
                 ret = Z_BUF_ERROR; \
                 goto inf_leave; \
-            } \
+            }*/ \
         } \
     } while (0)
 
@@ -218,12 +217,8 @@ void makefixed9(void)
    inflateBack() can also return Z_STREAM_ERROR if the input parameters
    are not correct, i.e. strm is Z_NULL or the state was not initialized.
  */
-int ZEXPORT inflateBack9(strm, in, in_desc, out, out_desc)
+int ZEXPORT inflateBack9(strm)
 z_stream FAR *strm;
-in_func in;
-void FAR *in_desc;
-out_func out;
-void FAR *out_desc;
 {
     struct inflate_state FAR *state;
     z_const unsigned char FAR *next;    /* next input */
@@ -249,6 +244,12 @@ void FAR *out_desc;
     code last;                  /* parent table entry */
     unsigned len;               /* length to copy for repeats, bits to drop */
     int ret;                    /* return code */
+
+    int window_ptr;
+    int outsize;
+    int ended;
+    unsigned char FAR *next_out;
+
     static const unsigned short order[19] = /* permutation of code lengths */
         {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
 #include "inffix9.h"
@@ -266,6 +267,7 @@ void FAR *out_desc;
     window = state->window;
     next = strm->next_in;
     have = next != Z_NULL ? strm->avail_in : 0;
+    next_out = strm->next_out;
     //hold = 0;
     //bits = 0;
     //put = window;
@@ -273,8 +275,12 @@ void FAR *out_desc;
     //lencode = Z_NULL;
     //distcode = Z_NULL;
 
-    put = strm->next_out; // next_out does not mean API buffer
-    left = strm->avail_out;
+    put = state->put;
+    left = state->left;
+    window_ptr = state->window_ptr;
+    outsize = state->outsize;
+    ended = state->ended;
+
     mode = state->mode;
     wrap = state->wrap; // wrap meaning is different from inflate.c
     hold = state->hold;
@@ -288,6 +294,19 @@ void FAR *out_desc;
     distbits = state->distbits;
     lastblock = state->last;
 
+    if(window_ptr < outsize) {
+        for(;strm->avail_out>0;strm->avail_out--){
+            *next_out++ = window[window_ptr++];
+            if(window_ptr == outsize){
+                window_ptr = 0;
+                outsize = 0;
+                if(ended)ret = Z_STREAM_END;
+                break;
+            }
+        }
+    }
+
+    if(window_ptr == 0){
     /* Inflate until end of block marked as last */
     for (;;)
         switch (mode) {
@@ -513,10 +532,10 @@ void FAR *out_desc;
                 Tracevv((stderr, here.val >= 0x20 && here.val < 0x7f ?
                         "inflate:         literal '%c'\n" :
                         "inflate:         literal 0x%02x\n", here.val));
-                ROOM();
-                *put++ = (unsigned char)(length);
-                left--;
-                mode = LEN;
+                //ROOM();
+                //*put++ = (unsigned char)(length);
+                //left--;
+                mode = LIT;
                 break;
             }
 
@@ -610,14 +629,25 @@ void FAR *out_desc;
             } while (length != 0);
             mode = LEN;
             break;
-
+        case LIT:
+            ROOM();
+            //if (left == 0) goto inf_leave;
+            *put++ = (unsigned char)(length);
+            left--;
+            mode = LEN;
+            break;
         case DONE:
             /* inflate stream terminated properly -- write leftover output */
+#if 0
             ret = Z_STREAM_END;
             if (left < WSIZE) {
                 if (out(out_desc, window, (unsigned)(WSIZE - left)))
                     ret = Z_BUF_ERROR;
             }
+#endif
+            ended = 1;
+            outsize = (unsigned)(WSIZE - left);
+            if(outsize == 0) ret = Z_STREAM_END;
             goto inf_leave;
 
         case BAD:
@@ -628,14 +658,18 @@ void FAR *out_desc;
             ret = Z_STREAM_ERROR;
             goto inf_leave;
         }
+    }
 
     /* Return unused input */
   inf_leave:
-    strm->next_out = put;
-    strm->avail_out = left;
+    state->put = put;
+    state->left = left;
     strm->next_in = next;
     strm->avail_in = have;
-    
+    state->window_ptr = window_ptr;
+    state->outsize = outsize;
+    state->ended = ended;
+
     state->mode = mode;
     state->wrap = wrap;
     state->hold = hold;

@@ -52,6 +52,11 @@ struct inflate_state {
     unsigned extra;
     unsigned length;
     unsigned offset;
+    unsigned char FAR *put;     /* next output */
+    unsigned long left;         /* available output */    
+    int window_ptr;
+    int outsize;
+    int ended;
 
     code const FAR *lencode;
     code const FAR *distcode;

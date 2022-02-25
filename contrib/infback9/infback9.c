@@ -294,9 +294,11 @@ z_stream FAR *strm;
     distbits = state->distbits;
     lastblock = state->last;
 
+    ret = Z_OK;
     if(window_ptr < outsize) {
-        for(;strm->avail_out>0;strm->avail_out--){
-            *next_out++ = window[window_ptr++];
+        for(;strm->avail_out>0;){
+            strm->avail_out--;
+            *strm->next_out++ = window[window_ptr++];
             if(window_ptr == outsize){
                 window_ptr = 0;
                 outsize = 0;

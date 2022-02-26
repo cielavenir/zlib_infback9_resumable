@@ -1,3 +1,7 @@
+Unlike normal infback9, this contrib/infback9's inflateBack9Init() / inflateBack9() / inflateBack9End() have z_stream interface like inflate().
+
+----
+
 ZLIB DATA COMPRESSION LIBRARY
 
 zlib 1.2.11 is a general purpose data compression library.  All the code is

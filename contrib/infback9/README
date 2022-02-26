@@ -1,1 +1,5 @@
+Update by @cielavenir: unlike normal infback9, this inflateBack9Init() / inflateBack9() / inflateBack9End() have z_stream interface like inflate().
+
+----
+
 See infback9.h for what this is and how to use it.

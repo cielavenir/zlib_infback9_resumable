@@ -248,7 +248,6 @@ z_stream FAR *strm;
     int window_ptr;
     int outsize;
     int ended;
-    unsigned char FAR *next_out;
 
     static const unsigned short order[19] = /* permutation of code lengths */
         {16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15};
@@ -267,7 +266,6 @@ z_stream FAR *strm;
     window = state->window;
     next = strm->next_in;
     have = next != Z_NULL ? strm->avail_in : 0;
-    next_out = strm->next_out;
     //hold = 0;
     //bits = 0;
     //put = window;

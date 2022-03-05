@@ -16,7 +16,7 @@
 
    window is a user-supplied window and output buffer that is 64K bytes.
  */
-int ZEXPORT inflateBack9Init_(strm, window, version, stream_size)
+int ZEXPORT inflate9Init_(strm, window, version, stream_size)
 z_stream FAR *strm;
 unsigned char FAR *window;
 const char *version;
@@ -217,7 +217,7 @@ void makefixed9(void)
    inflateBack() can also return Z_STREAM_ERROR if the input parameters
    are not correct, i.e. strm is Z_NULL or the state was not initialized.
  */
-int ZEXPORT inflateBack9(strm)
+int ZEXPORT inflate9(strm)
 z_stream FAR *strm;
 {
     struct inflate_state FAR *state;
@@ -685,7 +685,7 @@ z_stream FAR *strm;
     return ret;
 }
 
-int ZEXPORT inflateBack9End(strm)
+int ZEXPORT inflate9End(strm)
 z_stream FAR *strm;
 {
     if (strm == Z_NULL || strm->state == Z_NULL || strm->zfree == (free_func)0)

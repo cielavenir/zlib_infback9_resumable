@@ -1033,7 +1033,8 @@ int ZLIB_INTERNAL _tr_tally (s, dist, lc)
         s->dyn_dtree[d_code(dist)].Freq++;
     }
 
-#ifdef TRUNCATE_BLOCK
+#if 1
+//def TRUNCATE_BLOCK
     /* Try to guess if it is profitable to stop the current block here */
     if ((s->last_lit & 0x1fff) == 0 && s->level > 2) {
         /* Compute an upper bound for the compressed length */
